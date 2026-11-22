@@ -1,0 +1,9 @@
+torch>=1.12
+numpy
+pandas
+scikit-learn
+scipy
+einops
+pyyaml
+tqdm
+# torch_scatter  # optional, required only for encoder_type=gat

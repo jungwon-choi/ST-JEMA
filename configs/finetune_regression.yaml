@@ -1,0 +1,77 @@
+# ==============================================================================
+# ST-JEMA Fine-tuning Configuration (Regression)
+# ==============================================================================
+# Downstream regression (e.g., age prediction) after pre-training.
+#
+# Usage:
+#   python finetune.py --config configs/finetune_regression.yaml \
+#                      --data_dir ./data --output_dir ./output_ft \
+#                      --pretrain_dir ./output_pt
+# ==============================================================================
+
+# --- Basic ---
+seed: 0
+train_k: 0
+k_fold: 5
+
+# --- Dataset ---
+dataset: hcpa-rest
+target_feature: interview_age        # Regression target (age in months, auto-converted to years)
+roi: schaefer
+regression: true                     # Enable regression mode
+
+# --- Temporal Windowing ---
+window_size: 50
+window_stride: 16
+dynamic_length: 400
+static: false
+
+# --- Model Architecture ---
+encoder_type: gin                    # Must match pre-training config
+num_layers: 4
+hidden_dim: 128
+sparsity: 30
+dropout: 0.5
+readout: sero
+cls_token: sum
+num_heads: 1
+time_aggregation: mean               # Mean pooling over time (as in the paper)
+use_time_encoding: true
+not_use_time_encoding: false
+
+# --- Optimization ---
+lr: 0.001
+max_lr: null
+wd: 0.0001                           # selected from {1e-3, 5e-4, 1e-4}
+reg_lambda: 0.00001
+clip_grad: 0.0
+num_epochs: 30
+minibatch_size: 32
+eval_minibatch_size: 1
+eval_full_length: true               # Evaluate on full-length time series (requires eval_minibatch_size: 1)
+scheduler_type: onecycle
+finetune_lr: null
+
+# --- Training ---
+num_workers: 4
+drop_last: true
+validate: true
+validate_freq: 15
+val_ratio: 0.0
+skip_zeroshot: true
+
+# --- Pretrained Model Loading ---
+pretraindir: null
+fix_pretrain_k: 0
+freeze_pretrain: false
+use_bestval_model: true              # Load best_model.pth (lowest validation SSL loss) instead of the last-epoch model.pth
+
+# --- SSL (disabled for fine-tuning) ---
+ssl: false
+ema_update: false
+recon_node: false
+recon_edge: false
+
+# --- Dataset-Specific ---
+same_data_ssl_setting: false
+num_finetune_subsample: null

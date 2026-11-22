@@ -1,0 +1,125 @@
+# ==============================================================================
+# ST-JEMA Pre-training Configuration
+# ==============================================================================
+# Self-supervised pre-training with spatio-temporal joint embedding
+# masked autoencoder (JEPA-style) on dynamic brain graphs.
+#
+# Usage:
+#   python pretrain.py --config configs/pretrain_stjema.yaml \
+#                      --data_dir ./data --output_dir ./output_pt
+# ==============================================================================
+
+# --- Basic ---
+seed: 0
+train_k: 0                         # Fold index for cross-validation
+k_fold: 5                          # Number of folds
+
+# --- Dataset ---
+dataset: ukb-rest                   # Dataset name (must match data directory)
+target_feature: 31-0.0              # Target variable (used for stratified splits)
+roi: schaefer                       # Brain atlas: schaefer, aal, destrieux, harvard_oxford
+regression: false
+
+# --- Temporal Windowing ---
+window_size: 50                     # Sliding window size for FC computation
+window_stride: 16                   # Stride between windows
+dynamic_length: 400                 # Total BOLD signal length to use
+static: false                       # true: single static FC, false: dynamic FC
+
+# --- Model Architecture ---
+encoder_type: gin                   # Graph encoder: gin (GIN) or gat (GAT)
+num_layers: 4                       # Number of GNN layers
+hidden_dim: 128                     # Hidden dimension
+sparsity: 30                        # Top-k% for adjacency sparsification
+dropout: 0.5
+readout: sero                       # Spatial readout: sero, garo, mean
+cls_token: sum                      # Temporal aggregation: sum, mean, param
+num_heads: 1                        # Attention heads for readout
+time_aggregation: mean              # Temporal encoder: mean, transformer, gru
+use_time_encoding: false            # Add GRU-based temporal positional encoding
+not_use_time_encoding: false
+
+# --- Optimization ---
+lr: 0.00005
+wd: 0.0001                         # Weight decay
+reg_lambda: 0.0                    # Orthogonal regularization weight
+clip_grad: 0.0                     # Gradient clipping (0 = disabled)
+num_epochs: 5
+minibatch_size: 16
+eval_minibatch_size: 1
+scheduler_type: cosinedecay         # cosinedecay, constant, cawr
+
+# --- Training ---
+num_workers: 4
+drop_last: true
+validate: true
+validate_freq: 1
+val_ratio: 0.1                      # Fraction for validation split
+skip_zeroshot: true
+
+# ==============================================================================
+# SSL: ST-JEMA Configuration
+# ==============================================================================
+ssl: true
+ssl_type: stjema
+ssl_lambda_total: 1.0               # Overall SSL loss weight
+
+# --- JEPA Target Model ---
+target_model_type: latent            # latent = EMA target encoder output (default); raw = input node features
+ema_update: true                     # Use EMA for target encoder
+ema_decay: 0.996                     # EMA momentum start
+ema_decay_final: 1.0                 # EMA momentum end (linear schedule)
+
+# --- Block Masking ---
+num_pred_masks: 4                    # Number of prediction mask blocks
+pred_mask_scale:                     # Block size range as fraction of total nodes
+  - 0.10
+  - 0.15
+node_mask_rate: 0.5                  # Overall node masking rate
+random_mask_per_time: true           # Different masks per timepoint
+
+# --- Node Reconstruction ---
+recon_node: true
+ssl_lambda_node: 1.0
+add_node_decoder: true
+node_decoder_type: mlp-mixer         # mlp-mixer, mlp, gin
+node_decoder_hidden_dim_factor: 2.0
+node_projection_type: linear
+node_projection_hidden_dim_factor: 0.5
+node_recon_loss_type: mse            # mse, sce
+node_alpha_l: 2
+num_dec_layers: 1
+node_replace_rate: 0.0
+node_remask: false
+add_projection_layer: true
+recon_block_only: true               # Only reconstruct masked blocks
+add_enc_mask_token: false
+add_enc_node_mask_token: false
+
+# --- Edge Reconstruction ---
+recon_edge: true
+ssl_lambda_edge: 0.0001             # searched over {1e-3, 1e-4, 1e-5, 1e-6}
+edge_mask_rate: 0.0
+add_edge_decoder: true
+edge_decoder_type: mlp-mixer
+edge_decoder_hidden_dim_factor: 2.0
+edge_recon_loss_type: bce            # bce, sce
+edge_alpha_l: 2
+use_same_projection: false
+edge_block_mask: true                # Apply block-level edge masking
+edge_random_block: true
+edge_recon_per_block: false
+edge_recon_start_from: 0             # Step to start edge reconstruction loss
+
+# --- Spatial-Temporal Objectives ---
+spatial_node_recon: true              # Reconstruct nodes at same timepoint
+spatial_edge_recon: true              # Reconstruct edges at same timepoint
+temporal_node_recon: true             # Reconstruct nodes across time (A,B pairs)
+temporal_edge_recon: true             # Reconstruct edges across time (A,B pairs)
+temporal_node_concat_type: feat       # feat or proj
+spatial_rate: 0.5                     # Balance: spatial_rate * spatial + (1-rate) * temporal
+
+# --- Data Split (for UKB SSL setting) ---
+same_data_ssl_setting: true           # Use fold-0 train for SSL, fold-0 test for finetune
+ssl_test_ratio: 0.1
+num_finetune_subsample: 0
